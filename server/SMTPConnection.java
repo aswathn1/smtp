@@ -1,6 +1,7 @@
 import java.net.*;
 import java.io.*;
 import java.util.*;
+import java.net.SocketTimeoutException;
 
 
 public class SMTPConnection implements Runnable{
@@ -101,7 +102,8 @@ public class SMTPConnection implements Runnable{
 				{
 
 						/* get the sender address */
-						sender=requestCommand;
+						int nn=requestCommand.length();
+						sender=requestCommand.substring(11,nn);
 						if(sender.endsWith("@gmail.com"))
 						{
 						/* tell the client the sender is ok */
@@ -191,12 +193,38 @@ public class SMTPConnection implements Runnable{
 						reply("250 OK");
 						}		
 					}
-					System.out.println(data1);
+			
+					String toserv="MAIL FROM:"+sender+" RCPT TO:"+receiver+" MSG:"+data1;
+					System.out.println(toserv);
+					DatagramSocket client=new DatagramSocket();
+					client.setSoTimeout(3000);
+					InetAddress ip=InetAddress.getLocalHost();
+					byte[] sendata=new byte[1024];
+					sendata=toserv.getBytes();
+					DatagramPacket sendpac=new DatagramPacket(sendata,sendata.length,ip,2226);
+					client.send(sendpac);
+					
+					 byte[] receiveData = new byte[1024];
+					DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+      					client.receive(receivePacket);
+      					String fromserv = new String(receivePacket.getData()); 
+					client.close();
+					
+					reply(fromserv+" MESSAGE SAVED");
 
-					}catch(Exception e){e.printStackTrace();}
+					}
+					catch(SocketTimeoutException e)
+					{
+					reply("441 CONNECTION TO RECEIVER SMTP NOT ESTABLISHED, DATA LOST");
+					continue;
+					}
+					catch(Exception e)
+						{
+						e.printStackTrace();
+						}
 					/* tell the client the message is saved */
-					reply("MESSAGE SAVED");
 
+					
 				}
 
 				/* If unrecognized command is received, output an error */
